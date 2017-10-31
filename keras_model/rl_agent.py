@@ -1,0 +1,135 @@
+from keras import backend as K
+from keras.callbacks import ModelCheckpoint, ReduceLROnPlateau, TensorBoard
+import tensorflow as tf
+from utils import INPUT_SHAPE, preprocess
+from io import BytesIO
+import numpy as np
+from PIL import Image
+from sklearn.model_selection import train_test_split
+from nets.SqueezeNet_speed import SqueezeSpeedNet
+
+    
+class ReplayMemory():
+    def __init__(self, size):        
+        self.size = size
+        self.elements = [] # element: dict{'step':t,'st':st, 'at':at, 'r_st1':r_st1}
+        self._step = 0
+        self._st = None # st=dict{'img':img, 'speed':speed}
+        self._at = None # at=dict{'steer':steer, 'motor':motor}
+        self.r_st1 = None # r_st1 = r + gamma * max_a(Q(s_t1,a_t1))
+    
+    def push_elem(self, element):
+        if len(self.elements) > self.size:
+            return None
+        else: 
+            self.elements.append(element)
+    
+    def is_full(self):
+        if len(self.elements) >= self.size:
+            return True
+        else:
+            return False
+        
+class RLAgent():
+    def __init__(self, args):        
+        self.memory = ReplayMemory(args.replay_time) # 1hour@30fps
+        self.drive_net = SqueezeSpeedWireFitNet(INPUT_SHAPE)
+        self.model_path = args.model_dir
+        #self.summary_writer = tf.summary.FileWriter("logs/" + args.log_name)   
+        self.log_name = args.log_name
+        self.samples_per_epoch = args.samples_per_epoch
+        self.save_best_only = args.save_best_only
+        self.nb_epoch = args.nb_epoch
+        self.batch_size = args.batch_size
+        self.test_size = args.test_size
+    
+    def getBestAction(self, s):
+        q, a = self.drive_net.forward(s)
+        q_max_arg = np.argmax(q)
+        a_best = a[q_max_arg]
+        return a_best[0] + explore, a_best[1] + explore # steer, motor
+    
+    def getQ_value(self, s):
+        q, a = self.drive_net.forward(s)
+        return wire_fit(q,a)
+    
+    def wire_fit(self, q, a, c=-0.001, e=1e-08):    
+        q_max = np.max(q)
+        q_max_arg = np.argmax(q)
+        a_best = a[q_max_arg]
+        d = np.sqrt(np.sum(np.square((a-a_best)), 1)) + c * (q - q_max) + e
+        wsum = np.sum(q/d)
+        norm = np.sum(1/d)
+        return Q = wsum/norm    
+    
+    def build_model(self, model_path):
+        self.drive_net.model_init(model_path)
+    
+    def experience_replay(self):
+        print("start experience replay...")
+        m = self.memory.elements
+        model = self.drive_net.net
+        #generate training/validation set
+        X = [{'img':m[i]['img'], 'speed':m[i]['speed']} for i in len(m)]
+        y = [m[i]['r_st1'] for i in len(m)]
+        X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=self.test_size, random_state=0)
+        
+        #tensorboard unility
+        tbCallBack = TensorBoard(log_dir='logs/'+ log_name, histogram_freq=0, write_graph=True, write_images=True)
+        
+        #Reduce learning rate callback
+        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=1e-5)
+        
+        #Saves the model after every epoch.
+        #quantity to monitor, verbosity i.e logging mode (0 or 1), 
+        #if save_best_only is true the latest best model according to the quantity monitored will not be overwritten.
+        #mode: one of {auto, min, max}. If save_best_only=True, the decision to overwrite the current save file is
+        # made based on either the maximization or the minimization of the monitored quantity. For val_acc, 
+        #this should be max, for val_loss this should be min, etc. In auto mode, the direction is automatically
+        # inferred from the name of the monitored quantity.
+        checkpoint = ModelCheckpoint('../models/rl-model-{epoch:03d}.h5',
+                                     monitor='val_loss',
+                                     verbose=0,
+                                     save_best_only=self.save_best_only,
+                                     mode='auto')
+        
+        model.fit_generator(_mini_batch_generator(X_train, y_train),
+                            self.samples_per_epoch/self.batch_size,
+                            self.nb_epoch,
+                            max_queue_size=1,
+                            validation_data=_mini_batch_generator(X_valid, y_valid),
+                            validation_steps=len(X_valid),
+                            callbacks=[checkpoint, tbCallBack, reduce_lr],
+                            verbose=1)
+        
+    def _mini_batch_generator(self, st, r_st1):
+        """
+        Generate training image give image paths and associated steering angles
+        """
+        images = np.empty([batch_size, INPUT_SHAPE[0], INPUT_SHAPE[1], INPUT_SHAPE[2]])
+        speeds = np.empty([batch_size, 11, 20, 1])
+        
+        outs = np.empty([batch_size, 24])
+        
+        while True:
+        i = 0
+        for index in np.random.permutation(len(st)):    
+            image = Image.open(BytesIO(base64.b64decode(st[index]['img'])))
+            image = np.asarray(image)       # from PIL image to numpy array
+            image = preprocess(image) # apply the preprocessing
+            image = np.array([image])
+            
+            speed = st[index]['speed']
+            outs = r_st1[index]
+            
+            images[i] = image
+            # argument speed meta input
+            speed_arg = format_metadata(speed)
+            speeds[i] = speed_arg            
+                                  
+            outs[i] = outs
+            i += 1
+            if i == self.batch_size:
+                break
+        #yield images, steers
+        yield ({'IMG_input': images, 'speed_input': speeds}, {'out_q_a': outs})        
