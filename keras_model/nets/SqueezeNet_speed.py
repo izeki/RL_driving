@@ -105,7 +105,7 @@ class SqueezeSpeedNet(Net):
         get_outputs = K.function([self.net.layers[0].input, 
                                   self.net.layers[16].input, K.learning_phase()],
                                  [self.net.layers[52].output])
-        layer_outputs = get_outputs([model_input['IMG_input'], training_flag])[0]
+        layer_outputs = get_outputs([model_input['IMG_input'], model_input['speed_input'], training_flag])[0]
         return layer_outputs 
     
     def forward_backward(self, model_input, target_output):

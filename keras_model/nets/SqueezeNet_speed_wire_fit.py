@@ -121,7 +121,7 @@ class SqueezeSpeedWireFitNet(Net):
                                     momentum = 0.8, 
                                     decay = 1.0e-6,
                                     nesterov = True),
-                metrics=['loss', 'accuracy', summary])
+                metrics=['accuracy'])
         self.net = model
     
     def model_compile(self, 
@@ -138,19 +138,19 @@ class SqueezeSpeedWireFitNet(Net):
                                     momentum = momentum, 
                                     decay = decay,
                                     nesterov = nesterov),
-                metrics=['loss', 'accuracy', summary])
+                metrics=['accuracy'])
         self.net = model
     
     def get_layer_output(self, model_input, training_flag = True):        
         get_outputs = K.function([self.net.layers[0].input, 
                                   self.net.layers[16].input, K.learning_phase()],
                                  [self.net.layers[52].output])
-        layer_outputs = get_outputs([model_input['IMG_input'], training_flag])[0]
+        layer_outputs = get_outputs([model_input['img'], model_input['speed'], training_flag])[0]
         return layer_outputs 
     
     def forward_backward(self, model_input, target_output):
-        losses = self.net.train_on_batch({'IMG_input':model_input['IMG_input'],
-                                          'speed_input':model_input['speed_input']},
+        losses = self.net.train_on_batch({'IMG_input':model_input['img'],
+                                          'speed_input':model_input['speed']},
                                          {'out_q_a': target_output['q_s_a']})
         return dict(zip(self.net.metrics_names, losses))
         
@@ -208,18 +208,17 @@ def wire_fit_loss(y_true, y_pred):
                [16,17], 
                [19,20], 
                [22,23]]
-    x = K.variable(m)
     lr = 0.001
     c = -0.001
     e = 1e-08
     q_idx = K.variable(q_index, dtype='int32')
     a_idx = K.variable(a_index, dtype='int32')
-    q = K.gather(x, q_idx)
-    a = K.gather(x, a_idx)
+    q = tf.gather(y_pred, q_idx, axis = -1)
+    a = tf.gather(y_pred, a_idx, axis =  -1)
     q_max = K.max(q)
     q_max_arg = K.argmax(q)
-    a_arg = K.gather(a, q_max_arg)
-    d = K.sqrt(K.sum(K.square((a-a_arg)), 1)) + c * (q - q_max) + e
+    a_arg = K.gather(a, q_max_arg)    
+    d = K.sqrt(K.sum(K.square((a-a_arg)), -1)) + c * (q - q_max) + e
     wsum = K.sum(q / d)
     norm = K.sum(1/d)
     Q = wsum/norm
@@ -231,9 +230,8 @@ def wire_fit_loss(y_true, y_pred):
     # log state value and corresponding loss
     tf.summary.scalar("loss_state_value", K.sum(loss_q))
     tf.summary.scalar("loss_action", K.sum(loss_a))
-    tf.summary.scalar("state_value", K.sum(q_max))
-    
-    
+    tf.summary.scalar("state_value", K.sum(q_max))    
+
     return loss    
 
 # pass a custom metric function to model's compile() call 
