@@ -164,15 +164,15 @@ class SqueezeSpeedWireFitNet(Net):
                             [16,17], 
                             [19,20], 
                             [22,23]])
-        prediction = self.net.predict_on_batch({'IMG_input':model_input['IMG_input'],
-                                                'speed_input':model_input['speed_input']})
+        prediction = self.net.predict_on_batch({'IMG_input':model_input['img'],
+                                                'speed_input':model_input['speed']})
         q = prediction[0][q_index]
         a = prediction[0][a_index]
         return q, a
 
 # wire_fit learning
 #
-# y_true : r + gamma * max_a(Q(s,a))          
+# y_true : [r + gamma * max_a(Q(s,a)), a_best]
 # 
 # y_pred : <q_i, a_i>, q_i is the value function approximator, a_i is the policy approximator 
 #
@@ -215,15 +215,24 @@ def wire_fit_loss(y_true, y_pred):
     a_idx = K.variable(a_index, dtype='int32')
     q = tf.gather(y_pred, q_idx, axis = -1)
     a = tf.gather(y_pred, a_idx, axis =  -1)
+    q_prime_idx = K.variable([0], dtype='int32')
+    a_best_idx = K.variable([1], dtype='int32')
+    Q_prime = tf.gather(y_true, q_prime_idx, axis = -1)
+    a_best = tf.gather(y_true, a_best_idx, axis = -1)
     q_max = K.max(q)
-    q_max_arg = K.argmax(q)
-    a_arg = K.gather(a, q_max_arg)    
-    d = K.sqrt(K.sum(K.square((a-a_arg)), -1)) + c * (q - q_max) + e
+    # random explore
+    #q_max_arg = K.argmax(q)
+    #a_arg = K.gather(a, q_max_arg)    
+    #d = K.sqrt(K.sum(K.square((a-a_arg)), -1)) + c * (q - q_max) + e
+    d = K.sqrt(K.sum(K.square((a-a_best)), -1)) + c * (q - q_max) + e
     wsum = K.sum(q / d)
     norm = K.sum(1/d)
     Q = wsum/norm
-    dq = lr * (y_true - Q) * (norm * (d + c * q) - wsum * c) / K.square(norm * d)
-    da = lr * (y_true - Q) *((wsum - norm * K.transpose(K.stack([q,q]))) * 2 * (a - a_arg)) / K.square(norm * K.transpose(K.stack([d,d])))
+    # random explore
+    #dq = lr * (y_true - Q) * (norm * (d + c * q) - wsum * c) / K.square(norm * d)
+    #da = lr * (y_true - Q) *((wsum - norm * K.transpose(K.stack([q,q]))) * 2 * (a - a_arg)) / K.square(norm * K.transpose(K.stack([d,d])))
+    dq = lr * (Q_prime - Q) * (norm * (d + c * q) - wsum * c) / K.square(norm * d)
+    da = lr * (Q_prime - Q) *((wsum - norm * K.transpose(K.stack([q,q]))) * 2 * (a - a_best)) / K.square(norm * K.transpose(K.stack([d,d])))    
     loss_q = K.mean(K.sum(K.square(dq)))
     loss_a = K.mean(K.sum(K.square(da)))
     loss = (loss_q + loss_a)/2
@@ -244,8 +253,8 @@ def unit_test():
     test_net = SqueezeSpeedWireFitNet((376, 672, 3))
     test_net.model_init()
     test_net.net.summary()
-    a = test_net.forward({'IMG_input': np.random.rand(1, 376, 672, 3),
-                          'speed_input': np.random.rand(1, 11, 20, 1)})
+    a = test_net.forward({'img': np.random.rand(1, 376, 672, 3),
+                          'speed': np.random.rand(1, 11, 20, 1)})
     
     print(a)
 
