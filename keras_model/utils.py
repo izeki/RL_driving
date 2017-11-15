@@ -221,9 +221,42 @@ def batch_generator_with_speed(data_dir, image_paths, steering_angles_and_motors
             if i == batch_size:
                 break
         #yield images, steers
-        yield ({'IMG_input': images, 'speed_input': speeds}, {'out3': outs})        
+        yield ({'IMG_input': images, 'speed_input': speeds}, {'out3': outs})   
+        
+        
+def batch_generator_with_imu(data_dir, image_paths, out_put_targets, batch_size, is_training):
+    """
+    Generate training image give image paths and associated steering angles, motors, expected imu states
+    """
+    images = np.empty([batch_size, IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS])
+    metas = np.empty([batch_size, 11, 20, 3])
+    #steers = np.empty(batch_size)
+    outs = np.empty([batch_size, 5])
+    while True:
+        i = 0
+        for index in np.random.permutation(image_paths.shape[0]):        
+            center, speed, pitch, yaw = image_paths[index]
+            steering_angle, motor, next_speed, next_pitch, next_yaw = out_put_targets[index]
+            # argument speed meta input
+            meta_arg = format_metadata(speed, pitch, yaw)
+            metas[i] = meta_arg
+            # argumentation
+            #if is_training and np.random.rand() < 0.6:
+            #    image, steering_angle = augument(data_dir, center, left, right, steering_angle)
+            #else:
+            #    image = load_image(data_dir, center) 
+            image = load_image(data_dir, center) 
+            # add the image and steering angle to the batch
+            images[i] = preprocess(image)
+            #steers[i] = steering_angle                        
+            outs[i] = [steering_angle, motor, next_speed, next_pitch, next_yaw]
+            i += 1
+            if i == batch_size:
+                break
+        #yield images, steers
+        yield ({'IMG_input': images, 'speed_input': speeds}, {'output': outs})           
 
-def format_metadata(speed):
+def format_metadata(speed, pitch, yaw):
     """
     Formats meta data from raw inputs from camera.
     :return:
@@ -231,10 +264,12 @@ def format_metadata(speed):
     metadata = np.zeros((1, 
                          11,
                          20, 
-                         1))
+                         3))
     
     
     
     metadata[0,:,:,0]= speed
+    metadata[0,:,:,1]= pitch
+    metadata[0,:,:,2]= yaw
     
     return metadata   

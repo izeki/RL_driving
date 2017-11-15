@@ -33,16 +33,18 @@ def load_data(args):
     """
     #reads CSV file into a single dataframe variable
     #data_df = pd.read_csv(os.path.join(os.getcwd(), args.data_dir, 'driving_log.csv'), names=['center', 'left', 'right', 'steering', 'throttle', 'reverse', 'speed', 'motor'])
-    data_df = pd.read_csv(os.path.join(os.getcwd(), args.data_dir, 'driving_log.csv'), names=['center', 'steering', 'throttle', 'reverse', 'speed', 'motor'])    
+    data_df = pd.read_csv(os.path.join(os.getcwd(), args.data_dir, 'driving_log.csv'), 
+                          names=['center', 'steering', 'throttle', 'reverse', 'speed', 'pitch', 'yaw',
+                                 'next_speed', 'next_pitch', 'next_yaw', 'motor'])    
     
     #yay dataframes, we can select rows and columns by their names
     #we'll store the camera images as our input data
     # SqueezeNet
     #X = data_df['center'].values
     # SqueezeSpeedNet
-    X = data_df[['center', 'speed']].values
+    X = data_df[['center', 'speed', 'pitch', 'yaw']].values
     #and our steering commands as our output data
-    y = data_df[['steering', 'motor']].values
+    y = data_df[['steering', 'motor', 'next_speed', 'next_pitch', 'next_yaw']].values
 
     #now we can split the data into a training (80), testing(20), and validation set
     #thanks scikit learn
@@ -146,11 +148,11 @@ def train_model(model, args, X_train, X_valid, y_train, y_valid):
         
     """
     # for SqueezeSpeedNet
-    model.fit_generator(batch_generator_with_speed(args.data_dir, X_train, y_train, args.batch_size, True),
+    model.fit_generator(batch_generator_with_imu(args.data_dir, X_train, y_train, args.batch_size, True),
                         args.samples_per_epoch/args.batch_size,
                         args.nb_epoch,
                         max_queue_size=1,
-                        validation_data=batch_generator_with_speed(args.data_dir, X_valid, y_valid, args.batch_size, False),
+                        validation_data=batch_generator_with_imu(args.data_dir, X_valid, y_valid, args.batch_size, False),
                         validation_steps=len(X_valid),
                         callbacks=[checkpoint, tbCallBack, reduce_lr],
                         verbose=1)

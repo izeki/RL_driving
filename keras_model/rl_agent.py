@@ -24,6 +24,12 @@ class ReplayMemory():
         self._st = None 
         self._at = None 
         self.r_st1 = None 
+        
+    def clear(self):
+        self.elements = []
+        self._st = None # st=dict{'img':img, 'speed':speed, 'pitch':pitch, 'yaw':yaw}
+        self._at = None # at=dict{'steer':steer, 'motor':motor}
+        self.r_st1 = None # r_st1 = r + gamma * max_a(Q(s_t1,a_t1))
             
     
     def is_full(self):
