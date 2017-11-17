@@ -1,36 +1,40 @@
 from keras import backend as K
 from keras.callbacks import ModelCheckpoint, ReduceLROnPlateau, TensorBoard
 import tensorflow as tf
-from utils import INPUT_SHAPE, preprocess
+from utils import INPUT_SHAPE, preprocess, format_metadata_RL
 from io import BytesIO
 import numpy as np
 from PIL import Image
 from sklearn.model_selection import train_test_split
 from nets.SqueezeNet_speed_wire_fit import SqueezeSpeedWireFitNet
 
-    
+batch_size = 20 ### DEFAULT TO 20 based on rl.py, can be subject to change #######
+
+
 class ReplayMemory():
     def __init__(self, size):        
         self.size = size
         self.elements = [] # element: dict{'step':t, 'st':st, 'at':at, 'r_st1':r_st1}
         self._step = 0
-        self._st = None # st=dict{'img':img, 'speed':speed, 'pitch':pitch, 'yaw':yaw}
+        self._st = None # st=dict{'speed':speed, 'pitch':pitch, 'yaw':yaw, 'steer':steer, 'motor':motor}
         self._at = None # at=dict{'steer':steer, 'motor':motor}
+        self._st1 = None #st1 = dict{'speed':speed, 'pitch':pitch, 'yaw':yaw, 'steer':steer, 'motor':motor} #Added state of timestep t+1
         self.r_st1 = None # r_st1 = r + gamma * max_a(Q(s_t1,a_t1))
     
     def push(self):
-        element = {'step': self._step, 'st':self._st, 'at':self._at, 'r_st1':self._r_st1}
+        element = {'step': self._step, 'st':self._st, 'at':self._at, 'r_st1':self._r_st1, 'st1': self._st1}
         self.elements.append(element)
         self._st = None 
         self._at = None 
         self.r_st1 = None 
-        
+        self._st1 = None
+
     def clear(self):
         self.elements = []
-        self._st = None # st=dict{'img':img, 'speed':speed, 'pitch':pitch, 'yaw':yaw}
+        self._st = None # st=dict{'speed':speed, 'pitch':pitch, 'yaw':yaw}
         self._at = None # at=dict{'steer':steer, 'motor':motor}
         self.r_st1 = None # r_st1 = r + gamma * max_a(Q(s_t1,a_t1))
-            
+        self._st1 = None
     
     def is_full(self):
         if len(self.elements) >= self.size:
@@ -86,7 +90,8 @@ class RLAgent():
         m = self.memory.elements
         model = self.drive_net.net
         #generate training/validation set
-        X = [{'img':m[i]['st']['img'], 'speed':m[i]['st']['speed']} for i in range(len(m))]
+        X = [{'steer':m[i]['st']['steer'], 'motor':m[i]['st']['motor'], 'speed':m[i]['st']['speed'],
+              'pitch':m[i]['st']['pitch'], 'yaw':m[i]['st']['yaw']} for i in range(len(m))] #Modified state of RL to now be steer, motor, speed, pitch and yaw, rather than before where it was only image and speed.
         y = [{'r_st1':m[i]['r_st1'], 'a_best':m[i]['at']} for i in range(len(m))]
         X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=self.test_size, random_state=0)
         
@@ -109,11 +114,11 @@ class RLAgent():
                                      save_best_only=self.save_best_only,
                                      mode='auto')
         
-        model.fit_generator(_mini_batch_generator(X_train, y_train),
+        model.fit_generator(self._mini_batch_generator(X_train, y_train),  ## Added self in front of the generation to resolve reference
                             self.samples_per_epoch/self.batch_size,
                             self.nb_epoch,
                             max_queue_size=1,
-                            validation_data=_mini_batch_generator(X_valid, y_valid),
+                            validation_data=self._mini_batch_generator(X_valid, y_valid),
                             validation_steps=len(X_valid),
                             callbacks=[checkpoint, tbCallBack, reduce_lr],
                             verbose=1)
@@ -122,31 +127,38 @@ class RLAgent():
         """
         Generate training image give image paths and associated steering angles
         """
-        images = np.empty([batch_size, INPUT_SHAPE[0], INPUT_SHAPE[1], INPUT_SHAPE[2]])
-        speeds = np.empty([batch_size, 11, 20, 1])
+        #images = np.empty([batch_size, INPUT_SHAPE[0], INPUT_SHAPE[1], INPUT_SHAPE[2]])
+        state = np.empty([batch_size, 11, 20, 5]) #steer, motor, speed, pitch and yaw are the 5 inputs.
         
-        outs = np.empty([batch_size, 2])
-        
+        outs = np.empty([batch_size, 2]) #Adjusted steer and adjusted motor are the two outputs
+
         while True:
             i = 0
             for index in np.random.permutation(len(st)):    
-                image = st[index]['img']            
+                #image = st[index]['img']
+                steer = st[index]['steer']
+                motor = st[index]['motor']
                 speed = st[index]['speed']
-                
+                pitch = st[index]['pitch']
+                yaw = st[index]['yaw']
                 
                 target = [r_st1_a_best[index]['r_st1'], r_st1_a_best[index]['a_best']]
 
-                images[i] = image
+                #images[i] = image
+
                 # argument speed meta input
-                speed_arg = format_metadata(speed)
-                speeds[i] = speed_arg            
+                speed_arg = format_metadata_RL(steer, motor, speed, pitch, yaw)
+                state[i] = speed_arg
 
                 outs[i] = target
                 i += 1
                 if i == self.batch_size:
                     break
             #yield images, steers
-            yield ({'IMG_input': images, 'speed_input': speeds}, {'out_q_a': outs})        
+            #yield ({'IMG_input': images, 'speed_input': speeds}, {'out_q_a': outs})
+
+            #Now yield state and actions
+            yield ({'State_Input':state}, {'Action_Output':outs})
             
             
-        
+

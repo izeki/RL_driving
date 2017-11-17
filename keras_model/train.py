@@ -11,7 +11,7 @@ from keras.callbacks import ModelCheckpoint, ReduceLROnPlateau, TensorBoard
 #what types of layers do we want our model to have?
 from keras.layers import Lambda, Conv2D, MaxPooling2D, Dropout, Dense, Flatten
 #helper class to define input shape and generate training images given image paths & steering angles
-from utils import INPUT_SHAPE, batch_generator, batch_seq_generator, batch_generator_with_speed
+from utils import INPUT_SHAPE, batch_generator_with_imu,  batch_generator, batch_seq_generator, batch_generator_with_speed
 #for command line arguments
 import argparse
 #for reading files
@@ -20,8 +20,8 @@ import os
 from nets import Net
 #from nets.SqueezeNet import SqueezeNet
 #from nets.SqueezeNet_LSTM import SqueezeLSTMNet
-from nets.SqueezeNet_speed import SqueezeSpeedNet
-
+#from nets.SqueezeNet_speed import SqueezeSpeedNet
+from nets.DrivingPolicyNet import SqueezeSpeedNet #New Neural Net accounting for extra inputs.
 
 #for debugging, allows for reproducible (deterministic) results 
 np.random.seed(0)
@@ -35,7 +35,7 @@ def load_data(args):
     #data_df = pd.read_csv(os.path.join(os.getcwd(), args.data_dir, 'driving_log.csv'), names=['center', 'left', 'right', 'steering', 'throttle', 'reverse', 'speed', 'motor'])
     data_df = pd.read_csv(os.path.join(os.getcwd(), args.data_dir, 'driving_log.csv'), 
                           names=['center', 'steering', 'throttle', 'reverse', 'speed', 'pitch', 'yaw',
-                                 'next_speed', 'next_pitch', 'next_yaw', 'motor'])    
+                                 'next_speed', 'next_pitch', 'next_yaw', 'motor', 'dist_left', 'dist_right']) # Added dist_left and dist_right
     
     #yay dataframes, we can select rows and columns by their names
     #we'll store the camera images as our input data
@@ -91,7 +91,7 @@ def build_model(args):
     """
     #drive_net = SqueezeNet(INPUT_SHAPE)     
     drive_net = SqueezeSpeedNet(INPUT_SHAPE)     
-    #drive_net = SqueezeLSTMNet(INPUT_SHAPE) 
+    #drive_net = SqueezeLSTMNet(INPUT_SHAPE)
                 
                 
     return drive_net

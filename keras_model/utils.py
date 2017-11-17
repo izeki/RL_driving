@@ -235,8 +235,8 @@ def batch_generator_with_imu(data_dir, image_paths, out_put_targets, batch_size,
     while True:
         i = 0
         for index in np.random.permutation(image_paths.shape[0]):        
-            center, speed, pitch, yaw = image_paths[index]
-            steering_angle, motor, next_speed, next_pitch, next_yaw = out_put_targets[index]
+            center, speed, pitch, yaw = image_paths[index]   #X output from rl.py
+            steering_angle, motor, next_speed, next_pitch, next_yaw = out_put_targets[index] #Y output from rl.py
             # argument speed meta input
             meta_arg = format_metadata(speed, pitch, yaw)
             metas[i] = meta_arg
@@ -254,7 +254,7 @@ def batch_generator_with_imu(data_dir, image_paths, out_put_targets, batch_size,
             if i == batch_size:
                 break
         #yield images, steers
-        yield ({'IMG_input': images, 'speed_input': speeds}, {'output': outs})           
+        yield ({'IMG_input': images, 'IMU_input': meta_arg}, {'output': outs})
 
 def format_metadata(speed, pitch, yaw):
     """
@@ -265,11 +265,28 @@ def format_metadata(speed, pitch, yaw):
                          11,
                          20, 
                          3))
-    
-    
-    
+
     metadata[0,:,:,0]= speed
     metadata[0,:,:,1]= pitch
     metadata[0,:,:,2]= yaw
     
-    return metadata   
+    return metadata
+
+
+def format_metadata_RL(steer, motor, speed, pitch, yaw):
+    """
+    Formats meta data from raw inputs from camera.
+    :return:
+    """
+    metadata = np.zeros((1,
+                         11,
+                         20,
+                         5))
+    metadata[0, :, :, 0] = steer
+    metadata[0, :, :, 1] = motor
+
+    metadata[0, :, :, 2] = speed
+    metadata[0, :, :, 3] = pitch
+    metadata[0, :, :, 4] = yaw
+
+    return metadata

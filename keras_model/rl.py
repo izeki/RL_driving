@@ -11,7 +11,7 @@ import eventlet.wsgi
 #threading
 import threading
 #Queue
-import Queue
+from multiprocessing import Queue
 #image manipulation
 from PIL import Image
 #web framework
@@ -55,6 +55,9 @@ is_replay = False
 rlAgent = None
 
 
+alpha1, alpha2 = 0.5 #Used for calculating immediate reward
+
+
 #for command line args
 def s2b(s):
     """
@@ -63,7 +66,7 @@ def s2b(s):
     s = s.lower()
     return s == 'true' or s == 'yes' or s == 'y' or s == '1'
 
-def rl_drive(image, speed):
+def rl_drive(image, speed, pitch, yaw):
     global graph, rlAgent, reward, args, is_first, is_off_road, is_replay
 
     # To solve "Not An Element Of Tensor Graph" bug
@@ -75,7 +78,7 @@ def rl_drive(image, speed):
                 if is_first:
                     is_first = False
                     # augment speed metainput
-                    speed_arg = utils.format_metadata(speed)
+                    speed_arg = utils.format_metadata(speed, pitch, yaw)
     
                     # predict the steering angle for the image
                     rlAgent.memory._step += 1
@@ -96,6 +99,7 @@ def rl_drive(image, speed):
                         # predict the steering angle for the image
                         [Q, steer, motor] = rlAgent.getQ_value_and_best_action({'img': image,
                                                                                 'speed': speed_arg})
+
                         reward = args.gamma * Q
                         rlAgent.memory._r_st1 = reward
                         rlAgent.memory.push()
