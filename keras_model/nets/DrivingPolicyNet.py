@@ -11,7 +11,7 @@ from keras import initializers, regularizers, constraints
 from Net import Net
 from utils import INPUT_SHAPE
 import numpy as np
-
+import tensorflow as tf
 
 def fire(name, squeeze_planes, expand1x1_planes, expand3x3_planes, **kwargs):
     def f(input):
@@ -98,7 +98,16 @@ class DrivingPolicyNet(Net):
                                      name='avg_pool1')(conv2)
 
         out = Flatten(name='out3')(avg_pool1)
-
+        #
+        with tf.name_scope("steer"):
+            steer = out[0,:]
+            tf.summary.scalar("steer", steer)
+        with tf.name_scope("motor"):
+            motor = out[1,:]
+            tf.summary.scalar("motor", motor)
+        with tf.name_scope("speed"):
+            speed = out[2, :]
+            tf.summary.scalar("speed", speed)
         model = Model(inputs=[IMG_data, metadata], outputs=out)
 
         return model
@@ -141,3 +150,8 @@ def unit_test():
     #print(b)
 
 unit_test()
+with tf.Session as sess:
+    merged = tf.summary.merge_all()
+    train_writer = tf.summary.FileWriter('/train',
+                                         sess.graph)
+    test_writer = tf.summary.FileWriter('/test')

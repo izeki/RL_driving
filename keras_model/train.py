@@ -104,7 +104,7 @@ def train_model(model, args, X_train, X_valid, y_train, y_valid):
     """
     #tensorboard unility
     tbCallBack = TensorBoard(log_dir='./SqueezeSpeedNet', histogram_freq=0, write_graph=True, write_images=True)
-    
+
     
     #Reduce learning rate callback
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=1e-5)
