@@ -138,6 +138,6 @@ def unit_test():
     a = test_net.forward({'IMG_input': input1_img, 'IMU_input': input1_IMU})
     b = test_net.get_layer_output({'IMG_input': input1_img, 'IMU_input': input1_IMU})
     print(a)
-    print(b)
+    #print(b)
 
 unit_test()

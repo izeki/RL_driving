@@ -7,10 +7,9 @@ import numpy as np
 from PIL import Image
 from sklearn.model_selection import train_test_split
 from nets.SqueezeNet_speed_wire_fit import SqueezeSpeedWireFitNet
-
+from nets.DrivingPolicyAdaptNet import DrivingPolicyAdaptNet
 batch_size = 20 ### DEFAULT TO 20 based on rl.py, can be subject to change #######
-
-
+adapt_net_input_shape = (5,)
 class ReplayMemory():
     def __init__(self, size):        
         self.size = size
@@ -45,7 +44,8 @@ class ReplayMemory():
 class RLAgent():
     def __init__(self, args):        
         self.memory = ReplayMemory(args.replay_time) # 1hour@30fps
-        self.drive_net = SqueezeSpeedWireFitNet(INPUT_SHAPE)
+        #self.drive_net = SqueezeSpeedWireFitNet(INPUT_SHAPE)
+        self.drive_net = DrivingPolicyAdaptNet(adapt_net_input_shape)
         #self.summary_writer = tf.summary.FileWriter("logs/" + args.log_name)   
         self.log_name = args.log_name
         self.samples_per_epoch = args.samples_per_epoch
@@ -143,6 +143,7 @@ class RLAgent():
                 yaw = st[index]['yaw']
                 
                 target = [r_st1_a_best[index]['r_st1'], r_st1_a_best[index]['a_best']]
+
 
                 #images[i] = image
 

@@ -1,4 +1,5 @@
 #parsing command line arguments
+import math
 import argparse
 #matrix math
 import numpy as np
@@ -8,6 +9,7 @@ import socketio
 import eventlet
 #web server gateway interface
 import eventlet.wsgi
+from scipy.spatial.distance import euclidean
 #threading
 import threading
 #Queue
@@ -28,6 +30,7 @@ import utils
 # https://justttry.github.io/justttry.github.io/not-an-element-of-Tensor-graph/
 import tensorflow as tf
 graph = None
+from nets.DrivingPolicyNet import DrivingPolicyNet
 
 # commandline arguments
 args = None
@@ -55,7 +58,10 @@ is_replay = False
 rlAgent = None
 
 
-alpha1, alpha2 = 0.5 #Used for calculating immediate reward
+alpha1, alpha2 = 0.5, 0.5 #Used for calculating immediate reward
+
+drive_policy_net = DrivingPolicyNet(utils.INPUT_SHAPE) ##Initialize drive_policy net ###
+drive_policy_net.model_init()
 
 
 #for command line args
@@ -66,41 +72,49 @@ def s2b(s):
     s = s.lower()
     return s == 'true' or s == 'yes' or s == 'y' or s == '1'
 
-def rl_drive(image, speed, pitch, yaw):
+#Arguments are all current data received from unity
+def rl_drive(image, curr_steer, curr_motor, speed, pitch, yaw, dist_left, dist_right):
     global graph, rlAgent, reward, args, is_first, is_off_road, is_replay
 
+    #Format arguments for input to Driving Policy Net.
+    IMU_arg = utils.format_metadata_RL(curr_steer, curr_motor, speed, pitch, yaw)
+    dict_input = {'IMG_input': image, 'IMU_input': IMU_arg}
+    # state outputted by drive policy net: ([steer], [motor], [speed], [pitch], [yaw])
+    state_output = drive_policy_net.forward(dict_input)
+    #dictionary representing the state outputted by the drive policy net
+    dict_output = {'steer': state_output[0][0], 'motor': state_output[1][0], 'speed': state_output[2][0],
+                   'pitch': state_output[3][0], 'yaw': state_output[4][0]}
     # To solve "Not An Element Of Tensor Graph" bug
     # https://justttry.github.io/justttry.github.io/not-an-element-of-Tensor-graph/
-    with graph.as_default():     
-
+    with graph.as_default():
         if args.isTraining:
             if not is_replay:
                 if is_first:
                     is_first = False
-                    # augment speed metainput
-                    speed_arg = utils.format_metadata(speed, pitch, yaw)
-    
                     # predict the steering angle for the image
                     rlAgent.memory._step += 1
-                    [steer, motor] = rlAgent.getBestAction({'img': image,
-                                                            'speed': speed_arg})
-                    rlAgent.memory._st = {'img':image, 'speed':speed}
-                    rlAgent.memory._at = {'steer':image, 'speed':speed}
-                    
+
+                    [steer, motor] = rlAgent.getBestAction(dict_output)
+                    rlAgent.memory._st = dict_output
+                    rlAgent.memory._at = {'steer':steer, 'speed':motor} #Action is delta steer, delta motor
+
                     # convert the motor value range back to -1000 to 1000 
                     motor = motor * 1000
             
-                    return steer, motor
+                    #return steer, motor
+                    #Driving policy outputs delta steer, delta motor, so add to current steer and motor to get
+                    return curr_steer + steer, curr_motor + motor
                 else:                    
                     if not is_off_road:
-                        # augment speed metainput
-                        speed_arg = utils.format_metadata(speed)
-    
                         # predict the steering angle for the image
-                        [Q, steer, motor] = rlAgent.getQ_value_and_best_action({'img': image,
-                                                                                'speed': speed_arg})
-
-                        reward = args.gamma * Q
+                        [Q, steer, motor] = rlAgent.getQ_value_and_best_action(dict_output)
+                        #expected imu is a 3x1 vector holding the speed pitch and yaw of state_output
+                        expected_imu = [state_output[2][0], state_output[3][0], state_output[4][0]]
+                        #Find euclidean distance between current speed, pitch and yaw and the expected imu outputs.
+                        difference = euclidean(expected_imu, [speed, pitch, yaw])
+                        #Calculate reward. r = a_1(tanh(ln(d_l + d_r))) + a_2(tanh(ln(d_s)))
+                        immediate_reward = alpha1 * math.tanh(math.log(dist_left + dist_right, math.e)) + alpha2 * math.tanh(math.log(difference, math.e))
+                        reward = immediate_reward + args.gamma * Q
                         rlAgent.memory._r_st1 = reward
                         rlAgent.memory.push()
                         
@@ -108,13 +122,15 @@ def rl_drive(image, speed, pitch, yaw):
                             is_replay = True
                         else:
                             rlAgent.memory._step += 1
-                            rlAgent.memory._st = {'img':image, 'speed':speed}
-                            rlAgent.memory._at = {'steer':image, 'speed':speed}
+                            rlAgent.memory._st = dict_output
+                            rlAgent.memory._at = {'steer':steer, 'motor':motor}
                         
                         # convert the motor value range back to -1000 to 1000 
                         motor = motor * 1000
             
-                        return steer, motor
+                        #return steer, motor
+                        # Driving policy outputs delta steer, delta motor, so add to current steer and motor to get
+                        return curr_steer + steer, curr_motor + motor
                     else:                        
                         # off road, reward = -1 and the system goes to the end state
                         reward = -1
@@ -127,7 +143,8 @@ def rl_drive(image, speed, pitch, yaw):
                         if rlAgent.memory.is_full():
                             is_replay = True
                             
-                        return 0, 0    
+                        return 0, 0
+                        #return curr_steer, curr_motor
             else:             
                 # exprience replay 
                 rlAgent.experience_replay()   
@@ -135,22 +152,23 @@ def rl_drive(image, speed, pitch, yaw):
                 is_first = True
                 is_off_road = False
                 is_replay = False
-                return 0, 0 
+                return 0, 0
                 
                 
                 
         else:
             # augment speed metainput
-            speed_arg = utils.format_metadata(speed)
+            speed_arg = utils.format_metadata(speed, pitch, yaw)
 
             # predict the steering angle for the image
-            [steer, motor] = rlAgent.getBestAction({'img': image,
-                                                    'speed': speed_arg})
-        
-            # convert the motor value range back to -1000 to 1000 
+            [steer, motor] = rlAgent.getBestAction(dict_output)
+
+            # convert the motor value range back to -1000 to 1000
             motor = motor * 1000
             
-            return steer, motor
+            #return steer, motor
+            # Driving policy outputs delta steer, delta motor, so add to current steer and motor to get
+            return curr_steer + steer, curr_motor + motor
                 
 
 #registering event handler for the server
@@ -171,7 +189,17 @@ def telemetry(sid, data):
         throttle = float(data["throttle"])
         # The current speed of the car
         # global speed
-        speed = float(data["speed"])        
+        speed = float(data["speed"])
+        #current pitch of car
+        pitch = float(data["pitch"])
+        #current yaw angle of car
+        yaw = float(data["yaw"])
+        #distance of car to edge of left road
+        dist_left = float(data["dist_left"])
+        #distance of car to edge of right road
+        dist_right = float(data["dist_right"])
+
+
         # The current image from the center camera of the car
         image = Image.open(BytesIO(base64.b64decode(data["image"])))
 
@@ -180,7 +208,7 @@ def telemetry(sid, data):
             image = utils.preprocess(image)       # apply the preprocessing
             image = np.array([image])       # the model expects 4D array   
 
-            steer, motor = rl_drive(image, speed)
+            steer, motor = rl_drive(image, steering_angle, throttle, speed, pitch, yaw, dist_left, dist_right)
             print('{} {} {}'.format(steer, motor, speed))
             send_control(steer, motor)            
         except Exception as e:

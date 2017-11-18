@@ -55,6 +55,7 @@ class DrivingPolicyAdaptNet(Net):
         a = prediction[0][a_index]
         return q, a
 
+
 def unit_test():
     test_net = DrivingPolicyAdaptNet((5,))
     test_net.model_init()

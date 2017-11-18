@@ -21,7 +21,7 @@ from nets import Net
 #from nets.SqueezeNet import SqueezeNet
 #from nets.SqueezeNet_LSTM import SqueezeLSTMNet
 #from nets.SqueezeNet_speed import SqueezeSpeedNet
-from nets.DrivingPolicyNet import SqueezeSpeedNet #New Neural Net accounting for extra inputs.
+from nets.DrivingPolicyNet import DrivingPolicyNet #New Neural Net accounting for extra inputs.
 
 #for debugging, allows for reproducible (deterministic) results 
 np.random.seed(0)
@@ -35,7 +35,7 @@ def load_data(args):
     #data_df = pd.read_csv(os.path.join(os.getcwd(), args.data_dir, 'driving_log.csv'), names=['center', 'left', 'right', 'steering', 'throttle', 'reverse', 'speed', 'motor'])
     data_df = pd.read_csv(os.path.join(os.getcwd(), args.data_dir, 'driving_log.csv'), 
                           names=['center', 'steering', 'throttle', 'reverse', 'speed', 'pitch', 'yaw',
-                                 'next_speed', 'next_pitch', 'next_yaw', 'motor', 'dist_left', 'dist_right']) # Added dist_left and dist_right
+                                 'next_speed', 'next_pitch', 'next_yaw', 'motor']) # Added dist_left and dist_right
     
     #yay dataframes, we can select rows and columns by their names
     #we'll store the camera images as our input data
@@ -90,9 +90,10 @@ def build_model(args):
     model.summary()
     """
     #drive_net = SqueezeNet(INPUT_SHAPE)     
-    drive_net = SqueezeSpeedNet(INPUT_SHAPE)     
+    #drive_net = SqueezeSpeedNet(INPUT_SHAPE)
     #drive_net = SqueezeLSTMNet(INPUT_SHAPE)
-                
+
+    drive_net = DrivingPolicyNet(INPUT_SHAPE)
                 
     return drive_net
 
