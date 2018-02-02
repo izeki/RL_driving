@@ -8,8 +8,11 @@ from keras.layers import Activation, Merge
 from keras import backend as K
 from keras.engine import Layer, InputSpec
 from keras import initializers, regularizers, constraints
-from Net import Net
+import sys
+sys.path.append('..')
+import utils
 from utils import INPUT_SHAPE
+from Net import Net
 import numpy as np
 
 class DrivingPolicyAdaptNet(Net):

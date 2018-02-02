@@ -254,7 +254,7 @@ def batch_generator_with_imu(data_dir, image_paths, out_put_targets, batch_size,
             if i == batch_size:
                 break
         #yield images, steers
-        yield ({'IMG_input': images, 'IMU_input': meta_arg}, {'output': outs})
+        yield ({'IMG_input': images, 'IMU_input': metas}, {'out3': outs})
 
 def format_metadata(speed, pitch, yaw):
     """

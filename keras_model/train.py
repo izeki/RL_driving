@@ -94,6 +94,7 @@ def build_model(args):
     #drive_net = SqueezeLSTMNet(INPUT_SHAPE)
 
     drive_net = DrivingPolicyNet(INPUT_SHAPE)
+    #drive_net = DrivingPolicyAdaptNet(INPUT_SHAPE)
                 
     return drive_net
 

@@ -3,7 +3,6 @@ from keras import backend as K
 from keras import optimizers
 
 import numpy as np
-
 from utils import INPUT_SHAPE
 
 class Net(object):

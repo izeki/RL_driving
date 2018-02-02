@@ -87,7 +87,7 @@ class DrivingPolicyNet(Net):
         fire8 = fire('8', 64, 256, 256)(fire7)
 
         drop1 = Dropout(rate=0.5, name='drop1')(fire8)
-        conv2 = Conv2D(filters=5 * self.N_STEPS, #### Changed filters to 3 so that output has 5 things: steer, motor, speed, pitch, yaw ####
+        conv2 = Conv2D(filters=5 * self.N_STEPS, #### Changed filters to 5 so that output has 5 things: steer, motor, speed, pitch, yaw ####
                        kernel_size=1,
                        padding='valid',
                        name='conv2')(drop1)
@@ -96,9 +96,10 @@ class DrivingPolicyNet(Net):
                                      strides=(6, 6),
                                      padding='valid',
                                      name='avg_pool1')(conv2)
-
+        print(avg_pool1)
         out = Flatten(name='out3')(avg_pool1)
         #
+        """
         with tf.name_scope("steer"):
             steer = out[0,:]
             tf.summary.scalar("steer", steer)
@@ -108,8 +109,9 @@ class DrivingPolicyNet(Net):
         with tf.name_scope("speed"):
             speed = out[2, :]
             tf.summary.scalar("speed", speed)
+        """
         model = Model(inputs=[IMG_data, metadata], outputs=out)
-
+        
         return model
 
     def get_layer_output(self, model_input, training_flag=True):
@@ -150,8 +152,10 @@ def unit_test():
     #print(b)
 
 unit_test()
+"""
 with tf.Session as sess:
     merged = tf.summary.merge_all()
     train_writer = tf.summary.FileWriter('/train',
                                          sess.graph)
     test_writer = tf.summary.FileWriter('/test')
+"""
