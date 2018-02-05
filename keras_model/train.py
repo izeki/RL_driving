@@ -28,6 +28,7 @@ np.random.seed(0)
 
 
 def load_data(args):
+
     """
     Load training data and split it into training and validation set
     """
@@ -37,19 +38,21 @@ def load_data(args):
                           names=['center', 'steering', 'throttle', 'reverse', 'speed', 'pitch', 'yaw',
                                  'next_speed', 'next_pitch', 'next_yaw', 'motor']) # Added dist_left and dist_right
     
+
     #yay dataframes, we can select rows and columns by their names
     #we'll store the camera images as our input data
     # SqueezeNet
     #X = data_df['center'].values
     # SqueezeSpeedNet
+    #These are our input values.
     X = data_df[['center', 'speed', 'pitch', 'yaw']].values
     #and our steering commands as our output data
+    #These are our output values
     y = data_df[['steering', 'motor', 'next_speed', 'next_pitch', 'next_yaw']].values
 
     #now we can split the data into a training (80), testing(20), and validation set
     #thanks scikit learn
     X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=args.test_size, random_state=0)
-
     return X_train, X_valid, y_train, y_valid
 
 
@@ -104,7 +107,8 @@ def train_model(model, args, X_train, X_valid, y_train, y_valid):
     Train the model
     """
     #tensorboard unility
-    tbCallBack = TensorBoard(log_dir='./SqueezeSpeedNet', histogram_freq=0, write_graph=True, write_images=True)
+    log_dir = './DrivingPolicyNet'
+    tbCallBack = TensorBoard(log_dir=log_dir, histogram_freq=0, write_graph=True, write_images=True)
 
     
     #Reduce learning rate callback
@@ -150,6 +154,17 @@ def train_model(model, args, X_train, X_valid, y_train, y_valid):
         
     """
     # for SqueezeSpeedNet
+    """
+    model.fit_generator(batch_generator_with_imu(args.data_dir, X_train, y_train, args.batch_size, True),
+                        args.samples_per_epoch/args.batch_size,
+                        args.nb_epoch,
+                        max_queue_size=1,
+                        validation_data=batch_generator_with_imu(args.data_dir, X_valid, y_valid, args.batch_size, False),
+                        validation_steps=len(X_valid),
+                        callbacks=[checkpoint, tbCallBack, reduce_lr],
+                        verbose=1)
+    """
+    #Gets the first column of X_train which contains all the image paths
     model.fit_generator(batch_generator_with_imu(args.data_dir, X_train, y_train, args.batch_size, True),
                         args.samples_per_epoch/args.batch_size,
                         args.nb_epoch,
@@ -203,7 +218,7 @@ def main():
     for key, value in vars(args).items():
         print('{:<20} := {}'.format(key, value))
     print('-' * 30)
-
+    print(args)
     #load data
     data = load_data(args)
     #build model    

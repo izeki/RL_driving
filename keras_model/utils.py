@@ -228,6 +228,7 @@ def batch_generator_with_imu(data_dir, image_paths, out_put_targets, batch_size,
     """
     Generate training image give image paths and associated steering angles, motors, expected imu states
     """
+
     images = np.empty([batch_size, IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS])
     metas = np.empty([batch_size, 11, 20, 3])
     #steers = np.empty(batch_size)
@@ -261,14 +262,13 @@ def format_metadata(speed, pitch, yaw):
     Formats meta data from raw inputs from camera.
     :return:
     """
-    metadata = np.zeros((1, 
-                         11,
+    metadata = np.zeros((1, 11,
                          20, 
                          3))
 
-    metadata[0,:,:,0]= speed
-    metadata[0,:,:,1]= pitch
-    metadata[0,:,:,2]= yaw
+    metadata[0:,:,0]= speed
+    metadata[0:,:,1]= pitch
+    metadata[0:,:,2]= yaw
     
     return metadata
 

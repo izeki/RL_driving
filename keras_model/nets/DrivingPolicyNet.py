@@ -9,9 +9,12 @@ from keras import backend as K
 from keras.engine import Layer, InputSpec
 from keras import initializers, regularizers, constraints
 from Net import Net
-from utils import INPUT_SHAPE
 import numpy as np
 import tensorflow as tf
+
+
+IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS = 376, 672, 3
+INPUT_SHAPE = (IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS)
 
 def fire(name, squeeze_planes, expand1x1_planes, expand3x3_planes, **kwargs):
     def f(input):
@@ -45,12 +48,13 @@ class DrivingPolicyNet(Net):
         IMG_data_norm = Lambda(lambda x: x / 127.5 - 1.0, input_shape=self.input_shape)(IMG_data)
 
 
-        metadata = Input(shape=(11, 20, 3), name='IMU_input') #changed dimension to 3 from 3 as there are now 3 inputs: speed, pitch, yaw
+        metadata = Input(shape=(11, 20, 3), name='IMU_input') #3 inputs from IMU: speed, pitch, yaw
 
         IMG_data_pool1 = AveragePooling2D(pool_size=(2, 2),
                                           strides=(2, 2),
                                           padding='valid',
                                           name='IMG_data_pool1')(IMG_data_norm)
+
         IMG_data_pool2 = AveragePooling2D(pool_size=(2, 2),
                                           strides=(2, 2),
                                           padding='valid',
@@ -61,6 +65,7 @@ class DrivingPolicyNet(Net):
                        padding='valid',
                        activation='relu',
                        name='conv1')(IMG_data_pool2)
+
         conv1_pool = MaxPooling2D(pool_size=(2, 2),
                                   strides=(2, 2),
                                   padding='valid',
@@ -87,7 +92,7 @@ class DrivingPolicyNet(Net):
         fire8 = fire('8', 64, 256, 256)(fire7)
 
         drop1 = Dropout(rate=0.5, name='drop1')(fire8)
-        conv2 = Conv2D(filters=5 * self.N_STEPS, #### Changed filters to 5 so that output has 5 things: steer, motor, speed, pitch, yaw ####
+        conv2 = Conv2D(filters=5 * self.N_STEPS, #### Changed filters to 5 so that output has 5 things: steer, motor, next_speed, next_pitch, next_yaw ####
                        kernel_size=1,
                        padding='valid',
                        name='conv2')(drop1)
@@ -96,7 +101,6 @@ class DrivingPolicyNet(Net):
                                      strides=(6, 6),
                                      padding='valid',
                                      name='avg_pool1')(conv2)
-        print(avg_pool1)
         out = Flatten(name='out3')(avg_pool1)
         #
         """
@@ -124,7 +128,7 @@ class DrivingPolicyNet(Net):
     def forward_backward(self, model_input, target_output):
         [loss, accuracy] = self.net.train_on_batch({'IMG_input': model_input['IMG_input'],
                                                     'IMU_input': model_input['IMU_input']},
-                                                   {'out3': target_output['steer_motor_target_data']})
+                                                   {'out3': target_output['out3']})
         return loss
 
     def forward(self, model_input):

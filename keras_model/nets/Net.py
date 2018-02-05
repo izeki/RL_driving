@@ -3,8 +3,9 @@ from keras import backend as K
 from keras import optimizers
 
 import numpy as np
-from utils import INPUT_SHAPE
 
+IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS = 376, 672, 3
+INPUT_SHAPE = (IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS)
 class Net(object):
     def __init__(self, input_shape=INPUT_SHAPE):
         self.net = None
