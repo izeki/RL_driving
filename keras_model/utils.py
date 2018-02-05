@@ -1,6 +1,7 @@
 import cv2, os
 import numpy as np
 import matplotlib.image as mpimg
+from keras.layers import concatenate
 
 
 IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS = 376, 672, 3
@@ -255,7 +256,7 @@ def batch_generator_with_imu(data_dir, image_paths, out_put_targets, batch_size,
             if i == batch_size:
                 break
         #yield images, steers
-        yield ({'IMG_input': images, 'IMU_input': metas}, {'out3': outs})
+        yield {'IMG_input': images, 'IMU_input': metas}, {'out3': outs}
 
 def format_metadata(speed, pitch, yaw):
     """

@@ -131,9 +131,10 @@ class DrivingPolicyNet(Net):
                                                    {'out3': target_output['out3']})
         return loss
 
-    def forward(self, model_input):
-        prediction = self.net.predict_on_batch({'IMG_input': model_input['IMG_input'],
-                                                'IMU_input': model_input['IMU_input']})
+    def forward(self, model_input, target_output):
+        prediction = self.net.train_on_batch({'IMG_input': model_input['IMG_input'],
+                                                'IMU_input': model_input['IMU_input']},
+                                             {'out3': target_output['out3']})
 
         ai_steer = (prediction[:, 0])
         ai_motor = (prediction[:, 1])
@@ -155,7 +156,7 @@ def unit_test():
     print(a)
     #print(b)
 
-unit_test()
+#unit_test()
 """
 with tf.Session as sess:
     merged = tf.summary.merge_all()
