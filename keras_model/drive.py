@@ -85,7 +85,7 @@ def end_to_end_drive_thread():
                 ([steering_angle], [motor])  = drive_net.forward({'IMG_input': image})
                 """
                 # SqueezeSpeedNet                
-                ([steering_angle], [motor])  = drive_net.forward({'IMG_input': image,
+                ([steering_angle], [motor], _, __, ___)  = drive_net.forward({'IMG_input': image,
                                                                   'speed_input': speed_arg})
                 
                 """

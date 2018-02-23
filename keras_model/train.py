@@ -8,6 +8,7 @@ from keras.models import Sequential
 from keras.optimizers import Adam
 #to save our model periodically as checkpoints for loading later
 from keras.callbacks import ModelCheckpoint, ReduceLROnPlateau, TensorBoard
+from keras import metrics
 #what types of layers do we want our model to have?
 from keras.layers import Lambda, Conv2D, MaxPooling2D, Dropout, Dense, Flatten
 #helper class to define input shape and generate training images given image paths & steering angles
@@ -22,7 +23,6 @@ from nets import Net
 #from nets.SqueezeNet_LSTM import SqueezeLSTMNet
 #from nets.SqueezeNet_speed import SqueezeSpeedNet
 from nets.DrivingPolicyNet import DrivingPolicyNet #New Neural Net accounting for extra inputs.
-from nets.keras_squeezenet import SqueezeNet
 
 #for debugging, allows for reproducible (deterministic) results 
 np.random.seed(0)
@@ -134,7 +134,7 @@ def train_model(model, args, X_train, X_valid, y_train, y_valid):
     #divide by the number of them
     #that value is our mean squared error! this is what we want to minimize via
     #gradient descent
-    model.compile(loss='mean_squared_error', optimizer=Adam(lr=args.learning_rate))
+    model.compile(loss='mean_squared_error', optimizer=Adam(lr=args.learning_rate), metrics=[metrics.mae, metrics.categorical_accuracy])
 
     #Fits the model on data generated batch-by-batch by a Python generator.
 
