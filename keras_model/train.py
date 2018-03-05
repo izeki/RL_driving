@@ -49,7 +49,7 @@ def load_data(args):
     X = data_df[['center', 'speed', 'pitch', 'yaw']].values
     #and our steering commands as our output data
     #These are our output values
-    y = data_df[['steering', 'motor', 'next_speed', 'next_pitch', 'next_yaw']].values
+    y = data_df[['steering', 'throttle', 'next_speed', 'next_pitch', 'next_yaw']].values #Output should be throttle or motor?
 
     #now we can split the data into a training (80), testing(20), and validation set
     #thanks scikit learn

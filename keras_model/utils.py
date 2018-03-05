@@ -1,7 +1,7 @@
 import cv2, os
 import numpy as np
 import matplotlib.image as mpimg
-from keras.layers import concatenate
+#from keras.layers import concatenate
 
 
 IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS = 376, 672, 3

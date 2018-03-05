@@ -8,7 +8,7 @@ from keras.layers import Activation, Merge
 from keras import backend as K
 from keras.engine import Layer, InputSpec
 from keras import initializers, regularizers, constraints
-from Net import Net
+from .Net import Net
 import numpy as np
 import tensorflow as tf
 
@@ -131,10 +131,10 @@ class DrivingPolicyNet(Net):
                                                    {'out3': target_output['out3']})
         return loss
 
+    """
     def forward(self, model_input, target_output):
-        prediction = self.net.train_on_batch({'IMG_input': model_input['IMG_input'],
-                                                'IMU_input': model_input['IMU_input']},
-                                             {'out3': target_output['out3']})
+        prediction = self.net.predict_on_batch({'IMG_input': model_input['IMG_input'],
+                                                'IMU_input': model_input['IMU_input']})
 
         ai_steer = (prediction[:, 0])
         ai_motor = (prediction[:, 1])
@@ -143,8 +143,8 @@ class DrivingPolicyNet(Net):
         ai_yaw = (prediction[:, 4])
 
 
-        return ai_steer.tolist(), ai_motor.tolist(), ai_speed.tolist(), ai_pitch.tolist(), ai_yaw.tolist()
-
+        return ai_steer, ai_motor, ai_speed, ai_pitch, ai_yaw
+    """
 def unit_test():
     test_net = DrivingPolicyNet((376, 672, 3))
     test_net.model_init()
