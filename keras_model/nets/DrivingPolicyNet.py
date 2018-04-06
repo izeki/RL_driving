@@ -131,7 +131,7 @@ class DrivingPolicyNet(Net):
                                                    {'out3': target_output['out3']})
         return loss
 
-    """
+    
     def forward(self, model_input, target_output):
         prediction = self.net.predict_on_batch({'IMG_input': model_input['IMG_input'],
                                                 'IMU_input': model_input['IMU_input']})
@@ -144,7 +144,7 @@ class DrivingPolicyNet(Net):
 
 
         return ai_steer, ai_motor, ai_speed, ai_pitch, ai_yaw
-    """
+    
 def unit_test():
     test_net = DrivingPolicyNet((376, 672, 3))
     test_net.model_init()
